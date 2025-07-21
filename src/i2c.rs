@@ -14,12 +14,16 @@ use embedded_hal_async::i2c::I2c as AsyncI2c;
 
 #[cfg(feature = "async")]
 use super::{AsyncBME280Common, AsyncInterface};
-use super::{
-    BME280_H_CALIB_DATA_LEN, BME280_P_T_CALIB_DATA_LEN, BME280_P_T_H_DATA_LEN, Configuration,
-    Error, IIRFilter, Measurements, Oversampling,
-};
 #[cfg(feature = "sync")]
 use super::{BME280Common, Interface};
+
+use super::{
+    BME280_H_CALIB_DATA_LEN, BME280_P_T_CALIB_DATA_LEN, BME280_P_T_H_DATA_LEN, Configuration,
+    Error, IIRFilter, Measurements, MeasurementsFixedRaw, Oversampling,
+};
+
+#[cfg(feature = "fixed")]
+use super::MeasurementsFixed;
 
 const BME280_I2C_ADDR_PRIMARY: u8 = 0x76;
 const BME280_I2C_ADDR_SECONDARY: u8 = 0x77;
@@ -105,6 +109,23 @@ where
         delay: &mut D,
     ) -> Result<Measurements<I2C::Error>, Error<I2C::Error>> {
         self.common.measure(delay).await
+    }
+
+    /// Captures and processes sensor data for temperature, pressure, and humidity in fixed point format
+    #[cfg(feature = "fixed")]
+    pub async fn measure_fixed<D: AsyncDelayNs>(
+        &mut self,
+        delay: &mut D,
+    ) -> Result<MeasurementsFixed<I2C::Error>, Error<I2C::Error>> {
+        self.common.measure_fixed(delay).await
+    }
+
+    /// Captures and processes sensor data for temperature, pressure, and humidity in raw fixed point format
+    pub async fn measure_fixed_raw<D: AsyncDelayNs>(
+        &mut self,
+        delay: &mut D,
+    ) -> Result<MeasurementsFixedRaw<I2C::Error>, Error<I2C::Error>> {
+        self.common.measure_fixed_raw(delay).await
     }
 }
 

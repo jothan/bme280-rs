@@ -14,12 +14,16 @@ use embedded_hal_async::spi::SpiDevice as AsyncSpiDevice;
 
 #[cfg(feature = "async")]
 use super::{AsyncBME280Common, AsyncInterface};
-use super::{
-    BME280_H_CALIB_DATA_LEN, BME280_P_T_CALIB_DATA_LEN, BME280_P_T_H_DATA_LEN, Configuration,
-    Error, IIRFilter, Measurements, Oversampling,
-};
 #[cfg(feature = "sync")]
 use super::{BME280Common, Interface};
+
+use super::{
+    BME280_H_CALIB_DATA_LEN, BME280_P_T_CALIB_DATA_LEN, BME280_P_T_H_DATA_LEN, Configuration,
+    Error, IIRFilter, Measurements, MeasurementsFixedRaw, Oversampling,
+};
+
+#[cfg(feature = "fixed")]
+use super::MeasurementsFixed;
 
 /// Representation of a BME280
 #[maybe_async_cfg::maybe(
@@ -101,6 +105,23 @@ where
         delay: &mut D,
     ) -> Result<Measurements<SPIError<SPIE>>, Error<SPIError<SPIE>>> {
         self.common.measure(delay).await
+    }
+
+    /// Captures and processes sensor data for temperature, pressure, and humidity in fixed point format
+    #[cfg(feature = "fixed")]
+    pub async fn measure_fixed<D: AsyncDelayNs>(
+        &mut self,
+        delay: &mut D,
+    ) -> Result<MeasurementsFixed<SPIError<SPIE>>, Error<SPIError<SPIE>>> {
+        self.common.measure_fixed(delay).await
+    }
+
+    /// Captures and processes sensor data for temperature, pressure, and humidity in raw fixed point format
+    pub async fn measure_fixed_raw<D: AsyncDelayNs>(
+        &mut self,
+        delay: &mut D,
+    ) -> Result<MeasurementsFixedRaw<SPIError<SPIE>>, Error<SPIError<SPIE>>> {
+        self.common.measure_fixed_raw(delay).await
     }
 }
 

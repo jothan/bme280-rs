@@ -370,7 +370,43 @@ pub struct Measurements<E> {
     _e: PhantomData<E>,
 }
 
-impl<E> Measurements<E> {
+/// Type alias for future-proofing.
+pub type MeasurementsFloat<E> = Measurements<E>;
+
+/// Fixed-point measurement data in raw fixed point format
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "with_defmt", derive(defmt::Format))]
+#[derive(Debug)]
+pub struct MeasurementsFixedRaw<E> {
+    /// temperature in hundreths of degrees celsius 2134 for 21.34 deg C
+    pub temperature: i32,
+    /// pressure in pascals in Q24.8 format
+    pub pressure: u32,
+    /// percent relative humidity in Q22.10 format (`0` with BMP280)
+    pub humidity: u32,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    _e: PhantomData<E>,
+}
+
+/// Fixed-point measurement data in fixed point format
+#[cfg(feature = "fixed")]
+//#[cfg_attr(feature = "serde", derive(Serialize))]
+#[derive(Debug)]
+pub struct MeasurementsFixed<E> {
+    /// temperature in hundreths of degrees celsius 2134 for 21.34 deg C
+    pub temperature: i32,
+    /// pressure in pascals in Q24.8 format
+    pub pressure: ::fixed::types::U24F8,
+    /// percent relative humidity in Q22.10 format (`0` with BMP280)
+    pub humidity: ::fixed::types::U22F10,
+    //#[cfg_attr(feature = "serde", serde(skip))]
+    _e: PhantomData<E>,
+}
+
+trait Compensate<E, T, P, H>
+where
+    Self: Sized,
+{
     fn parse(
         data: [u8; BME280_P_T_H_DATA_LEN],
         calibration: &mut CalibrationData,
@@ -389,16 +425,36 @@ impl<E> Measurements<E> {
         let data_lsb = data[7] as u32;
         let humidity = data_msb | data_lsb;
 
-        let temperature = Measurements::compensate_temperature(temperature, calibration)?;
-        let pressure = Measurements::compensate_pressure(pressure, calibration)?;
-        let humidity = Measurements::compensate_humidity(humidity, calibration)?;
+        let temperature = Self::compensate_temperature(temperature, calibration)?;
+        let pressure = Self::compensate_pressure(pressure, calibration)?;
+        let humidity = Self::compensate_humidity(humidity, calibration)?;
 
-        Ok(Measurements {
+        Ok(Self::make(temperature, pressure, humidity))
+    }
+
+    fn make(temperature: T, pressure: P, humidity: H) -> Self;
+    fn compensate_temperature(
+        uncompensated: u32,
+        calibration: &mut CalibrationData,
+    ) -> Result<T, Error<E>>;
+    fn compensate_pressure(
+        uncompensated: u32,
+        calibration: &CalibrationData,
+    ) -> Result<P, Error<E>>;
+    fn compensate_humidity(
+        uncompensated: u32,
+        calibration: &CalibrationData,
+    ) -> Result<H, Error<E>>;
+}
+
+impl<E> Compensate<E, f32, f32, f32> for Measurements<E> {
+    fn make(temperature: f32, pressure: f32, humidity: f32) -> Self {
+        Measurements {
             temperature,
             pressure,
             humidity,
             _e: PhantomData,
-        })
+        }
     }
 
     fn compensate_temperature(
@@ -419,7 +475,7 @@ impl<E> Measurements<E> {
 
     fn compensate_pressure(
         uncompensated: u32,
-        calibration: &mut CalibrationData,
+        calibration: &CalibrationData,
     ) -> Result<f32, Error<E>> {
         let var1 = calibration.t_fine as f32 / 2.0 - 64000.0;
         let var2 = var1 * var1 * calibration.dig_p6 as f32 / 32768.0;
@@ -444,7 +500,7 @@ impl<E> Measurements<E> {
 
     fn compensate_humidity(
         uncompensated: u32,
-        calibration: &mut CalibrationData,
+        calibration: &CalibrationData,
     ) -> Result<f32, Error<E>> {
         let var1 = calibration.t_fine as f32 - 76800.0;
         let var2 = calibration.dig_h4 as f32 * 64.0 + (calibration.dig_h5 as f32 / 16384.0) * var1;
@@ -457,6 +513,127 @@ impl<E> Measurements<E> {
         let humidity = var6 * (1.0 - calibration.dig_h1 as f32 * var6 / 524288.0);
         let humidity = humidity.clamp(BME280_HUMIDITY_MIN, BME280_HUMIDITY_MAX);
         Ok(humidity)
+    }
+}
+
+#[cfg(feature = "fixed")]
+impl<E> Compensate<E, i32, fixed::types::U24F8, fixed::types::U22F10> for MeasurementsFixed<E> {
+    fn make(
+        temperature: i32,
+        pressure: fixed::types::U24F8,
+        humidity: fixed::types::U22F10,
+    ) -> Self {
+        MeasurementsFixed {
+            temperature,
+            pressure,
+            humidity,
+            _e: PhantomData,
+        }
+    }
+
+    fn compensate_temperature(
+        uncompensated: u32,
+        calibration: &mut CalibrationData,
+    ) -> Result<i32, Error<E>> {
+        MeasurementsFixedRaw::compensate_temperature(uncompensated, calibration)
+    }
+
+    fn compensate_pressure(
+        uncompensated: u32,
+        calibration: &CalibrationData,
+    ) -> Result<fixed::types::U24F8, Error<E>> {
+        MeasurementsFixedRaw::compensate_pressure(uncompensated, calibration)
+            .map(fixed::types::U24F8::from_bits)
+    }
+
+    fn compensate_humidity(
+        uncompensated: u32,
+        calibration: &CalibrationData,
+    ) -> Result<fixed::types::U22F10, Error<E>> {
+        MeasurementsFixedRaw::compensate_humidity(uncompensated, calibration)
+            .map(fixed::types::U22F10::from_bits)
+    }
+}
+
+impl<E> Compensate<E, i32, u32, u32> for MeasurementsFixedRaw<E> {
+    fn make(temperature: i32, pressure: u32, humidity: u32) -> Self {
+        MeasurementsFixedRaw {
+            temperature,
+            pressure,
+            humidity,
+            _e: PhantomData,
+        }
+    }
+
+    fn compensate_temperature(
+        uncompensated: u32,
+        calibration: &mut CalibrationData,
+    ) -> Result<i32, Error<E>> {
+        let uncompensated = uncompensated.cast_signed();
+
+        let var1 = (((uncompensated >> 3) - (i32::from(calibration.dig_t1) << 1))
+            * i32::from(calibration.dig_t2))
+            >> 11;
+        let var2 = (((((uncompensated >> 4) - i32::from(calibration.dig_t1))
+            * ((uncompensated >> 4) - i32::from(calibration.dig_t1)))
+            >> 12)
+            * i32::from(calibration.dig_t3))
+            >> 14;
+        calibration.t_fine = var1 + var2;
+
+        Ok((calibration.t_fine * 5 + 128) >> 8)
+    }
+
+    fn compensate_pressure(
+        uncompensated: u32,
+        calibration: &CalibrationData,
+    ) -> Result<u32, Error<E>> {
+        let uncompensated = uncompensated.cast_signed();
+
+        let mut var1 = i64::from(calibration.t_fine) - 128000;
+        let mut var2 = var1 * var1 * i64::from(calibration.dig_p6);
+        var2 += (var1 * i64::from(calibration.dig_p5)) << 17;
+        var2 += i64::from(calibration.dig_p4) << 35;
+
+        var1 = ((var1 * var1 * i64::from(calibration.dig_p3)) >> 8)
+            + ((var1 * i64::from(calibration.dig_p2)) << 12);
+        var1 = (((1 << 47) + var1) * i64::from(calibration.dig_p1)) >> 33;
+        if var1 == 0 {
+            return Err(Error::InvalidData);
+        }
+
+        let mut p = 1048576 - i64::from(uncompensated);
+        p = (((p << 31) - var2) * 3125) / var1;
+        var1 = (i64::from(calibration.dig_p9) * (p >> 13) * (p >> 13)) >> 25;
+        var2 = (i64::from(calibration.dig_p8) * p) >> 19;
+        let p = ((p + var1 + var2) >> 8) + (i64::from(calibration.dig_p7) << 4);
+        Ok(p as u32)
+    }
+
+    fn compensate_humidity(
+        uncompensated: u32,
+        calibration: &CalibrationData,
+    ) -> Result<u32, Error<E>> {
+        let uncompensated = uncompensated.cast_signed();
+
+        let mut x1 = calibration.t_fine - 76800;
+        x1 = ((((uncompensated << 14)
+            - (i32::from(calibration.dig_h4) << 20)
+            - (i32::from(calibration.dig_h5) * x1))
+            + 16384)
+            >> 15)
+            * (((((((x1 * i32::from(calibration.dig_h6)) >> 10)
+                * (((x1 * i32::from(calibration.dig_h3)) >> 11) + 32768))
+                >> 10)
+                + 2097152)
+                * i32::from(calibration.dig_h2)
+                + 8192)
+                >> 14);
+
+        x1 -= ((((x1 >> 15) * (x1 >> 15)) >> 7) * i32::from(calibration.dig_h1)) >> 4;
+        x1 = core::cmp::max(x1, 0);
+        x1 = core::cmp::min(x1, 419430400);
+        Ok((x1 >> 12) as u32)
     }
 }
 
@@ -675,6 +852,41 @@ where
         match self.calibration.as_mut() {
             Some(calibration) => {
                 let measurements = Measurements::parse(measurements, &mut *calibration)?;
+                Ok(measurements)
+            }
+            None => Err(Error::NoCalibrationData),
+        }
+    }
+
+    /// Captures and processes sensor data for temperature, pressure, and humidity in fixed-point format
+    #[cfg(feature = "fixed")]
+    async fn measure_fixed<D: AsyncDelayNs>(
+        &mut self,
+        delay: &mut D,
+    ) -> Result<MeasurementsFixed<I::Error>, Error<I::Error>> {
+        self.forced(delay).await?;
+        delay.delay_ms(40).await;
+        let measurements = self.interface.read_data(BME280_DATA_ADDR).await?;
+        match self.calibration.as_mut() {
+            Some(calibration) => {
+                let measurements = MeasurementsFixed::parse(measurements, &mut *calibration)?;
+                Ok(measurements)
+            }
+            None => Err(Error::NoCalibrationData),
+        }
+    }
+
+    /// Captures and processes sensor data for temperature, pressure, and humidity in raw fixed-point format
+    async fn measure_fixed_raw<D: AsyncDelayNs>(
+        &mut self,
+        delay: &mut D,
+    ) -> Result<MeasurementsFixedRaw<I::Error>, Error<I::Error>> {
+        self.forced(delay).await?;
+        delay.delay_ms(40).await;
+        let measurements = self.interface.read_data(BME280_DATA_ADDR).await?;
+        match self.calibration.as_mut() {
+            Some(calibration) => {
+                let measurements = MeasurementsFixedRaw::parse(measurements, &mut *calibration)?;
                 Ok(measurements)
             }
             None => Err(Error::NoCalibrationData),
