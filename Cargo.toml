@@ -33,6 +33,7 @@ with_defmt = ["defmt"]
 with_std = ["derive_more"]
 sync = []
 async = ["embedded-hal-async"]
+serde = ["dep:serde", "fixed?/serde"]
 cortexm = []
 
 [[example]]

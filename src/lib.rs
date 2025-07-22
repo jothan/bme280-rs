@@ -396,7 +396,7 @@ pub struct MeasurementsFixedRaw<E> {
 
 /// Fixed-point measurement data in fixed point format
 #[cfg(feature = "fixed")]
-//#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Debug)]
 pub struct MeasurementsFixed<E> {
     /// temperature in hundreths of degrees celsius 2134 for 21.34 deg C
@@ -405,7 +405,7 @@ pub struct MeasurementsFixed<E> {
     pub pressure: ::fixed::types::U24F8,
     /// percent relative humidity in Q22.10 format (`0` with BMP280)
     pub humidity: ::fixed::types::U22F10,
-    //#[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(skip))]
     _e: PhantomData<E>,
 }
 
