@@ -174,7 +174,8 @@ where
 {
     type Error = SPIError<SPI::Error>;
 
-    type ReadRegisterFuture<'a> = impl Future<Output = Result<u8, Error<Self::Error>>>
+    type ReadRegisterFuture<'a>
+        = impl Future<Output = Result<u8, Error<Self::Error>>>
     where
         SPI: 'a;
     fn read_register(&mut self, register: u8) -> Self::ReadRegisterFuture<'_> {
@@ -185,7 +186,8 @@ where
         }
     }
 
-    type ReadDataFuture<'a> = impl Future<Output = Result<[u8; BME280_P_T_H_DATA_LEN], Error<Self::Error>>>
+    type ReadDataFuture<'a>
+        = impl Future<Output = Result<[u8; BME280_P_T_H_DATA_LEN], Error<Self::Error>>>
     where
         SPI: 'a;
     fn read_data(&mut self, register: u8) -> Self::ReadDataFuture<'_> {
@@ -196,7 +198,8 @@ where
         }
     }
 
-    type ReadPtCalibDataFuture<'a> = impl Future<Output = Result<[u8; BME280_P_T_CALIB_DATA_LEN], Error<Self::Error>>>
+    type ReadPtCalibDataFuture<'a>
+        = impl Future<Output = Result<[u8; BME280_P_T_CALIB_DATA_LEN], Error<Self::Error>>>
     where
         SPI: 'a;
     fn read_pt_calib_data(&mut self, register: u8) -> Self::ReadPtCalibDataFuture<'_> {
@@ -207,7 +210,8 @@ where
         }
     }
 
-    type ReadHCalibDataFuture<'a> = impl Future<Output = Result<[u8; BME280_H_CALIB_DATA_LEN], Error<Self::Error>>>
+    type ReadHCalibDataFuture<'a>
+        = impl Future<Output = Result<[u8; BME280_H_CALIB_DATA_LEN], Error<Self::Error>>>
     where
         SPI: 'a;
     fn read_h_calib_data(&mut self, register: u8) -> Self::ReadHCalibDataFuture<'_> {
@@ -218,7 +222,8 @@ where
         }
     }
 
-    type WriteRegisterFuture<'a> = impl Future<Output = Result<(), Error<Self::Error>>>
+    type WriteRegisterFuture<'a>
+        = impl Future<Output = Result<(), Error<Self::Error>>>
     where
         SPI: 'a;
     fn write_register(&mut self, register: u8, payload: u8) -> Self::WriteRegisterFuture<'_> {
@@ -252,11 +257,8 @@ where
         register: u8,
         data: &mut [u8],
     ) -> Result<(), Error<SPIError<SPI::Error>>> {
-       self.spi
-            .transaction(&mut [
-                Operation::Write(&[register]),
-                Operation::Read(data)
-            ])
+        self.spi
+            .transaction(&mut [Operation::Write(&[register]), Operation::Read(data)])
             .await
             .map_err(|e| Error::Bus(SPIError::SPI(e)))?;
         Ok(())
