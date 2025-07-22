@@ -14,12 +14,12 @@ use embedded_hal_async::i2c::I2c as AsyncI2c;
 
 #[cfg(feature = "async")]
 use super::{AsyncBME280Common, AsyncInterface};
+use super::{
+    BME280_H_CALIB_DATA_LEN, BME280_P_T_CALIB_DATA_LEN, BME280_P_T_H_DATA_LEN, Configuration,
+    Error, IIRFilter, Measurements, Oversampling,
+};
 #[cfg(feature = "sync")]
 use super::{BME280Common, Interface};
-use super::{
-    Configuration, Error, IIRFilter, Measurements, Oversampling, BME280_H_CALIB_DATA_LEN,
-    BME280_P_T_CALIB_DATA_LEN, BME280_P_T_H_DATA_LEN,
-};
 
 const BME280_I2C_ADDR_PRIMARY: u8 = 0x76;
 const BME280_I2C_ADDR_SECONDARY: u8 = 0x77;

@@ -14,12 +14,12 @@ use embedded_hal_async::spi::SpiDevice as AsyncSpiDevice;
 
 #[cfg(feature = "async")]
 use super::{AsyncBME280Common, AsyncInterface};
+use super::{
+    BME280_H_CALIB_DATA_LEN, BME280_P_T_CALIB_DATA_LEN, BME280_P_T_H_DATA_LEN, Configuration,
+    Error, IIRFilter, Measurements, Oversampling,
+};
 #[cfg(feature = "sync")]
 use super::{BME280Common, Interface};
-use super::{
-    Configuration, Error, IIRFilter, Measurements, Oversampling, BME280_H_CALIB_DATA_LEN,
-    BME280_P_T_CALIB_DATA_LEN, BME280_P_T_H_DATA_LEN,
-};
 
 /// Representation of a BME280
 #[maybe_async_cfg::maybe(

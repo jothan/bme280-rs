@@ -83,7 +83,7 @@ use embedded_hal_async::delay::DelayNs as AsyncDelayNs;
 use serde::Serialize;
 
 #[cfg(feature = "with_defmt")]
-use defmt::{write, Format, Formatter};
+use defmt::{Format, Formatter, write};
 
 #[cfg(feature = "with_std")]
 use derive_more::Display;
