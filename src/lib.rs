@@ -71,6 +71,7 @@
 pub mod i2c;
 pub mod spi;
 
+use core::fmt::Debug;
 #[cfg(feature = "async")]
 use core::future::Future;
 use core::marker::PhantomData;
@@ -364,7 +365,6 @@ struct CalibrationData {
 /// Measurement data
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "with_defmt", derive(defmt::Format))]
-#[derive(Debug)]
 pub struct Measurements<E> {
     /// temperature in degrees celsius
     pub temperature: f32,
@@ -374,6 +374,16 @@ pub struct Measurements<E> {
     pub humidity: f32,
     #[cfg_attr(feature = "serde", serde(skip))]
     _e: PhantomData<E>,
+}
+
+impl<E> Debug for Measurements<E> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Measurements")
+            .field("temperature", &self.temperature)
+            .field("pressure", &self.pressure)
+            .field("humidity", &self.humidity)
+            .finish()
+    }
 }
 
 /// Type alias for future-proofing.
@@ -397,7 +407,6 @@ pub struct MeasurementsFixedRaw<E> {
 /// Fixed-point measurement data in fixed point format
 #[cfg(feature = "fixed")]
 #[cfg_attr(feature = "serde", derive(Serialize))]
-#[derive(Debug)]
 pub struct MeasurementsFixed<E> {
     /// temperature in hundreths of degrees celsius 2134 for 21.34 deg C
     pub temperature: i32,
@@ -407,6 +416,21 @@ pub struct MeasurementsFixed<E> {
     pub humidity: ::fixed::types::U22F10,
     #[cfg_attr(feature = "serde", serde(skip))]
     _e: PhantomData<E>,
+}
+
+#[cfg(feature = "fixed")]
+impl<E> Debug for MeasurementsFixed<E> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let temp_int = self.temperature / 100;
+        let temp_frac = (self.temperature % 100).abs();
+
+        core::write!(
+            f,
+            "MeasurementsFixed {{ temperature: {temp_int}.{temp_frac:02}, pressure: {:?}, humidity: {:?} }}",
+            self.pressure,
+            self.humidity
+        )
+    }
 }
 
 trait Compensate<E, T, P, H>
