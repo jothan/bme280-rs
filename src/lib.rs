@@ -413,13 +413,7 @@ impl<E> Measurements<E> {
         calibration.t_fine = (var1 + var2) as i32;
 
         let temperature = (var1 + var2) / 5120.0;
-        let temperature = if temperature < BME280_TEMP_MIN {
-            BME280_TEMP_MIN
-        } else if temperature > BME280_TEMP_MAX {
-            BME280_TEMP_MAX
-        } else {
-            temperature
-        };
+        let temperature = temperature.clamp(BME280_TEMP_MIN, BME280_TEMP_MAX);
         Ok(temperature)
     }
 
@@ -441,13 +435,7 @@ impl<E> Measurements<E> {
             let var1 = calibration.dig_p9 as f32 * pressure * pressure / 2147483648.0;
             let var2 = pressure * calibration.dig_p8 as f32 / 32768.0;
             let pressure = pressure + (var1 + var2 + calibration.dig_p7 as f32) / 16.0;
-            if pressure < BME280_PRESSURE_MIN {
-                BME280_PRESSURE_MIN
-            } else if pressure > BME280_PRESSURE_MAX {
-                BME280_PRESSURE_MAX
-            } else {
-                pressure
-            }
+            pressure.clamp(BME280_PRESSURE_MIN, BME280_PRESSURE_MAX)
         } else {
             return Err(Error::InvalidData);
         };
@@ -467,13 +455,7 @@ impl<E> Measurements<E> {
         let var6 = var3 * var4 * (var5 * var6);
 
         let humidity = var6 * (1.0 - calibration.dig_h1 as f32 * var6 / 524288.0);
-        let humidity = if humidity < BME280_HUMIDITY_MIN {
-            BME280_HUMIDITY_MIN
-        } else if humidity > BME280_HUMIDITY_MAX {
-            BME280_HUMIDITY_MAX
-        } else {
-            humidity
-        };
+        let humidity = humidity.clamp(BME280_HUMIDITY_MIN, BME280_HUMIDITY_MAX);
         Ok(humidity)
     }
 }
