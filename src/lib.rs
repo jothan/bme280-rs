@@ -115,12 +115,18 @@ const BME280_H_CALIB_DATA_LEN: usize = 7;
 
 const BME280_TEMP_MIN: f32 = -40.0;
 const BME280_TEMP_MAX: f32 = 85.0;
+const BME280_TEMP_MIN_FIXED: i32 = -4000;
+const BME280_TEMP_MAX_FIXED: i32 = 8500;
 
 const BME280_PRESSURE_MIN: f32 = 30000.0;
 const BME280_PRESSURE_MAX: f32 = 110000.0;
+const BME280_PRESSURE_MIN_FIXED: u32 = 30000 * 256;
+const BME280_PRESSURE_MAX_FIXED: u32 = 110000 * 256;
 
 const BME280_HUMIDITY_MIN: f32 = 0.0;
 const BME280_HUMIDITY_MAX: f32 = 100.0;
+const BME280_HUMIDITY_MIN_FIXED: u32 = 0;
+const BME280_HUMIDITY_MAX_FIXED: u32 = 100 * 1024;
 
 const BME280_SLEEP_MODE: u8 = 0x00;
 const BME280_FORCED_MODE: u8 = 0x01;
@@ -581,7 +587,9 @@ impl<E> Compensate<E, i32, u32, u32> for MeasurementsFixedRaw<E> {
             >> 14;
         calibration.t_fine = var1 + var2;
 
-        Ok((calibration.t_fine * 5 + 128) >> 8)
+        let temperature = (calibration.t_fine * 5 + 128) >> 8;
+        let temperature = temperature.clamp(BME280_TEMP_MIN_FIXED, BME280_TEMP_MAX_FIXED);
+        Ok(temperature)
     }
 
     fn compensate_pressure(
@@ -607,7 +615,8 @@ impl<E> Compensate<E, i32, u32, u32> for MeasurementsFixedRaw<E> {
         var1 = (i64::from(calibration.dig_p9) * (p >> 13) * (p >> 13)) >> 25;
         var2 = (i64::from(calibration.dig_p8) * p) >> 19;
         let p = ((p + var1 + var2) >> 8) + (i64::from(calibration.dig_p7) << 4);
-        Ok(p as u32)
+        let p = (p as u32).clamp(BME280_PRESSURE_MIN_FIXED, BME280_PRESSURE_MAX_FIXED);
+        Ok(p)
     }
 
     fn compensate_humidity(
@@ -631,9 +640,11 @@ impl<E> Compensate<E, i32, u32, u32> for MeasurementsFixedRaw<E> {
                 >> 14);
 
         x1 -= ((((x1 >> 15) * (x1 >> 15)) >> 7) * i32::from(calibration.dig_h1)) >> 4;
-        x1 = core::cmp::max(x1, 0);
-        x1 = core::cmp::min(x1, 419430400);
-        Ok((x1 >> 12) as u32)
+        x1 >>= 12;
+        let h = x1
+            .cast_unsigned()
+            .clamp(BME280_HUMIDITY_MIN_FIXED, BME280_HUMIDITY_MAX_FIXED);
+        Ok(h)
     }
 }
 
